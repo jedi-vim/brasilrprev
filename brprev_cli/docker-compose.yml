@@ -1,0 +1,73 @@
+version: "3.7"
+
+x-brprev: &brprev
+    build:
+      context: .
+    environment:
+      DYNACONF_MONGO_HOST: mongo
+      DYNACONF_MONGODB_USER: brprev
+      DYNACONF_MONGODB_DATABASE: brprev
+      DYNACONF_MONGODB_PASS: rC*zQPjWs5bu4anQ#gJ7
+      DYNACONF_REDIS_HOST: redis
+      DYNACONF_BRPREV_WEB: brprev_bot_web:4000
+    image: brprev_cli
+    depends_on:
+      - mongo
+      - redis
+
+services:
+
+  brprev_cli:
+    <<: *brprev
+    container_name: brprev_cli
+    command: "sleep infinity"
+    networks:
+      mongo_network:
+      redis_network:
+
+  brprev_cli_worker:
+    <<: *brprev
+    container_name: brprev_cli_worker
+    command: "celery -A brprev_cli.tasks worker --loglevel=info"
+    networks:
+      brprev_network:
+        aliases:
+          - brprev_cli_worker
+      mongo_network:
+      redis_network:
+
+  mongo:
+    container_name: mongodb-brprev  
+    image: mvertes/alpine-mongo
+    environment:
+      MONGODB_USER: brprev
+      MONGODB_DATABASE: brprev
+      MONGODB_PASS: rC*zQPjWs5bu4anQ#gJ7
+    volumes:
+      - mongo_brprev_cli:/data/db
+    networks:
+      mongo_network:
+         aliases:
+            - mongo
+
+  redis:
+    container_name: redis-brprev
+    image: redis:5.0-alpine
+    networks:
+      redis_network:
+         aliases:
+            - redis
+
+volumes:
+  mongo_brprev_cli:
+    driver: local
+    name: mongo_brprev_cli
+
+networks:
+  mongo_network:
+    driver: bridge
+  redis_network:
+    driver: bridge
+  brprev_network:
+    external: true
+
