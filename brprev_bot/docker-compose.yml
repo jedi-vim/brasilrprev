@@ -1,0 +1,79 @@
+version: "3.7"
+
+x-brprev: &brprev
+    build:
+      context: .
+    environment:
+      DYNACONF_PG_URI: "postgresql+psycopg2://brprev_bot:rC*zQPjWs5bu4anQ#gJ7@postgres:5432/brprev_bot"
+      DYNACONF_REDIS_HOST: redis
+    image: brprev_bot
+    depends_on:
+      - postgres
+      - redis
+
+services:
+  
+  brprev_bot:
+    <<: *brprev
+    container_name: brprev_bot
+    command: "./docker_start.sh"
+    networks:
+      brprev_network:
+        aliases:
+          - brprev_bot_web
+      bot_postgres_network:
+      bot_redis_network:
+
+  brprev_bot_worker:
+    <<: *brprev
+    container_name: brprev_bot_worker
+    command: "celery -A brprev_bot.tasks worker --loglevel=info"
+    networks:
+      bot_postgres_network:
+      bot_redis_network:
+
+
+  brprev_bot_beat:
+    <<: *brprev
+    container_name: brprev_bot_beat
+    command: "celery -A brprev_bot.tasks beat --loglevel=info"
+    networks:
+      bot_postgres_network:
+      bot_redis_network:
+
+  postgres:
+    image: postgres:11.3-alpine
+    container_name: postgres-brprev_bot
+    restart: always
+    environment:
+      - POSTGRES_DB=brprev_bot
+      - POSTGRES_USER=brprev_bot
+      - POSTGRES_PASSWORD=rC*zQPjWs5bu4anQ#gJ7
+    volumes:
+        - postgres_brprev_bot:/var/lib/postgresql/data
+    networks:
+      bot_postgres_network:
+         aliases:
+            - postgres
+
+  redis:
+    container_name: redis-brprev_bot
+    image: redis:5.0-alpine
+    networks:
+      bot_redis_network:
+         aliases:
+            - redis
+
+volumes:
+  postgres_brprev_bot:
+    driver: local
+    name: postgres_brprev_bot
+
+networks:
+  bot_postgres_network:
+    driver: bridge
+  bot_redis_network:
+    driver: bridge
+  brprev_network:
+    external: true
+
